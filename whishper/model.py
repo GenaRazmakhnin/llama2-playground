@@ -52,10 +52,7 @@ def transform_video_to_wav(path_from, path_to):
     video.audio.write_audiofile(path_to)
 
 def diarize_speakers(path):
-    pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-3.1",
-        use_auth_token="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",
-    )
+    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
 
     pipeline.to(torch.device("cuda"))
 
