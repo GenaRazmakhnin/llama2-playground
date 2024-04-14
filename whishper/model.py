@@ -9,23 +9,34 @@ import re
 from speechbox import ASRDiarizationPipeline
 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
-model_id = "openai/whisper-large-v3"
-
-model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
-)
-model.to(device)
-
-processor = AutoProcessor.from_pretrained(model_id)
-
-def write_to_file(text):
-    with open('result.txt', 'w') as file:
+def write_to_file(file, text):
+    with open(file, 'w') as file:
         file.write(str(text))
 
 def transcribe_voice_record(path):
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+    model_id = "openai/whisper-large-v3"
+
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+        model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+    )
+
+    # model.to(device)
+
+    model.encoder.to("cuda:0")
+    model.decoder.to("cuda:1")
+
+    model.decoder.register_forward_pre_hook(
+        lambda _, inputs: tuple([inputs[0].to("cuda:1"), inputs[1].to("cuda:1")] + list(inputs[2:]))
+    )
+    model.decoder.register_forward_hook(
+        lambda _, inputs, outputs: outputs.to("cuda:0")
+    )
+
+    processor = AutoProcessor.from_pretrained(model_id)
     audio_dataset = Dataset.from_dict({ "audio": [path] }).cast_column("audio", Audio()) # sampling_rate=16000
     sample = audio_dataset[0]["audio"]
 
@@ -42,12 +53,13 @@ def transcribe_voice_record(path):
         device=device,
     )
 
-    result = pipe(sample.copy(), generate_kwargs={"language": "english"}, return_timestamps=True)
-
-    # print(result)
-    return result['chunks']
+    result = pipe(sample.copy(), generate_kwargs={"language": "english"}, return_timestamps="word")
+    # print(result) 
+    write_to_file('transcription.txt', result['chunks'])
+    # return result['chunks']
 
 def transform_video_to_wav(path_from, path_to):
+    torchaudio.set_audio_backend("soundfile")
     video = VideoFileClip(path_from)
     video.audio.write_audiofile(path_to)
 
@@ -60,12 +72,8 @@ def diarize_speakers(path):
         waveform, sample_rate = torchaudio.load(path)
         annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate}, hook=hook)
         # print(str(annotation))
+        write_to_file('annotation.txt', str(annotation))
         return str(annotation)
-
-
-
-
-# transform_video_to_wav("/root/llama2-playground/whishper/coda meeting.mp4", 'output.wav')
 
 def millisec(timeStr):
   spl = timeStr.split(":")
@@ -143,12 +151,19 @@ def link_annotation_and_transcription(annotation, transcription):
     for item in final_data:
         string = string + item[0] + ":" + item[1] + "\n"
 
-    write_to_file(string)
+    write_to_file('result.txt', string)
     return final_data
 
+# transform_video_to_wav("/root/coda meeting.mp4", 'output.wav')
 
-annotation = diarize_speakers('/root/llama2-playground/whishper/output.wav')
+# annotation = diarize_speakers('/root/llama2-playground/whishper/output.wav')
 transcription = transcribe_voice_record('/root/llama2-playground/whishper/output.wav')
 
-link_annotation_and_transcription(annotation, transcription)
-# print(len(test()))
+def diff(t):
+    for item in t:
+        start, end = item["timestamp"]
+        if (end - start > 1):
+            print(item)
+
+
+# link_annotation_and_transcription(annotation, transcription)
