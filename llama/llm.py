@@ -6,7 +6,6 @@ import time
 
 from numba import cuda
 
-
 def load_llm_in_memory():
     start_time = time.time()
 

@@ -8,7 +8,6 @@ from pyannote.audio.pipelines.utils.hook import ProgressHook
 import re
 from speechbox import ASRDiarizationPipeline
 
-
 def write_to_file(file, text):
     with open(file, 'w') as file:
         file.write(str(text))
@@ -23,8 +22,6 @@ def transcribe_voice_record(path):
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
         model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
     )
-
-    # model.to(device)
 
     model.encoder.to("cuda:0")
     model.decoder.to("cuda:1")
@@ -46,15 +43,14 @@ def transcribe_voice_record(path):
         tokenizer=processor.tokenizer,
         feature_extractor=processor.feature_extractor,
         max_new_tokens=128,
-        chunk_length_s=30,
-        batch_size=16,
+        chunk_length_s=10,
+        batch_size=10,
         return_timestamps=True,
         torch_dtype=torch_dtype,
         device=device,
     )
 
     result = pipe(sample.copy(), generate_kwargs={"language": "english"}, return_timestamps="word")
-    # print(result) 
     write_to_file('transcription.txt', result['chunks'])
     # return result['chunks']
 
@@ -71,7 +67,6 @@ def diarize_speakers(path):
     with ProgressHook() as hook:
         waveform, sample_rate = torchaudio.load(path)
         annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate}, hook=hook)
-        # print(str(annotation))
         write_to_file('annotation.txt', str(annotation))
         return str(annotation)
 
@@ -111,7 +106,6 @@ def group_dz_output(output):
 
 def parse_dz_output(dz):
     dzList = []
-    temp_group = []
 
     for l in dz:
         start, end = tuple(re.findall('[0-9]+:[0-9]+:[0-9]+\.[0-9]+', l))
@@ -134,7 +128,6 @@ def link_annotation_and_transcription(annotation, transcription):
 
     for item in data:
         start, end = item["timestamp"]
-        added = False
 
         for dz_item in dz:
             dz_start, dz_end, speaker = dz_item
@@ -142,9 +135,6 @@ def link_annotation_and_transcription(annotation, transcription):
             if (start >= dz_start and start <= dz_end) or (end >= dz_start and end <= dz_end):
                 final_data.append((speaker, item["text"]))
                 break
-                added = True
-
-        # if not added: print(start, end, item["text"])
 
     string = ""
 
@@ -155,15 +145,6 @@ def link_annotation_and_transcription(annotation, transcription):
     return final_data
 
 # transform_video_to_wav("/root/coda meeting.mp4", 'output.wav')
-
 # annotation = diarize_speakers('/root/llama2-playground/whishper/output.wav')
-transcription = transcribe_voice_record('/root/llama2-playground/whishper/output.wav')
-
-def diff(t):
-    for item in t:
-        start, end = item["timestamp"]
-        if (end - start > 1):
-            print(item)
-
-
+# transcription = transcribe_voice_record('/root/llama2-playground/whishper/output.wav')
 # link_annotation_and_transcription(annotation, transcription)

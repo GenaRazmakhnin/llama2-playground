@@ -32,7 +32,25 @@ def parse_output(output):
         speaker = re.search(r"SPEAKER_\d{2}", line).group()
         list.append([start, end, speaker])
 
-    return list
+
+    list2 = None
+    
+    for index, line in enumerate(list):
+        if list2 is None: list2 = [[0, line[1], line[2]]]; continue;
+
+        if list2[-1][2] == line[2]: list2.append(line)
+        elif list2[-1][2] == list[index + 1][2] and line[1] - line[0] < 1000: continue;
+        else: list2.append(line)
+
+    result = None
+    
+    for line in list2:
+        if result is None: result = [line]; continue;
+        
+        if result[-1][2] == line[2]: result[-1][1] = line[1]
+        else: result.append(line)
+    
+    return result
 
 def normalize_annotation(text: str):
     return group_output(parse_output(text.splitlines()))
