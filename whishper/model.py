@@ -22,7 +22,8 @@ def transcribe_voice_record(path):
         model_id, 
         torch_dtype=torch_dtype, 
         low_cpu_mem_usage=True, 
-        use_safetensors=True
+        use_safetensors=True,
+        attn_implementation="eager"
     )
     
     model.to(device)
@@ -61,7 +62,7 @@ def diarize_speakers(path):
     with ProgressHook() as hook:
         waveform, sample_rate = torchaudio.load(path)
         annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate}, hook=hook)
-        write_to_file('annotation.txt', str(annotation))
+        # write_to_file('annotation.txt', str(annotation))
         return str(annotation)
 
 def millisec(timeStr):
