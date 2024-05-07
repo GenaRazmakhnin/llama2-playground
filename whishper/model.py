@@ -50,7 +50,6 @@ def transcribe_voice_record(path):
     return result['chunks']
 
 def transform_video_to_wav(path_from, path_to):
-    torchaudio.set_audio_backend("soundfile")
     video = VideoFileClip(path_from)
     video.audio.write_audiofile(path_to)
 
