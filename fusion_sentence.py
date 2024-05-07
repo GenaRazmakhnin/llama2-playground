@@ -1,15 +1,8 @@
 import re
-from annotation import normalize_annotation
 
 def write_to_file(file, text):
     with open(file, 'w') as file:
         file.write(str(text))
-
-transcriptions =  []
-
-annotations = normalize_annotation(
-    open("/Users/gena.razmakhnin/Documents/unknown/project/a.txt", "r").read()
-)
 
 def attach_word(text, word):
     if word[0] in ["-"]: return text + word
@@ -36,7 +29,10 @@ def reduce_speakers(speakers):
         if speaker_result is None: speaker_result = speaker
         if speaker["piece"] > speaker_result["piece"]: speaker_result = speaker
     
-    return speaker_result["speaker"]
+    if speaker_result is not None:
+        return speaker_result["speaker"]
+    
+    return ""
 
 def fuse(annotations, transcriptions):
     for transcription_item in transcriptions:
@@ -104,9 +100,3 @@ def replace_aidbox(text):
         text = re.compile(pattern, re.IGNORECASE).sub('Aidbox', text)
     
     return text
-
-
-write_to_file(
-    "done.txt", 
-    replace_aidbox(fuse(annotations, combine_words_into_sentence(transcriptions)))
-)

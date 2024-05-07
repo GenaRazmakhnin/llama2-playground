@@ -13,27 +13,22 @@ def write_to_file(file, text):
         file.write(str(text))
 
 def transcribe_voice_record(path):
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-
-    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
     model_id = "openai/whisper-large-v3"
 
+    device = "cuda:0"
+    torch_dtype = torch.float16
+
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+        model_id, 
+        torch_dtype=torch_dtype, 
+        low_cpu_mem_usage=True, 
+        use_safetensors=True
     )
-
-    model.encoder.to("cuda:0")
-    model.decoder.to("cuda:1")
-
-    model.decoder.register_forward_pre_hook(
-        lambda _, inputs: tuple([inputs[0].to("cuda:1"), inputs[1].to("cuda:1")] + list(inputs[2:]))
-    )
-    model.decoder.register_forward_hook(
-        lambda _, inputs, outputs: outputs.to("cuda:0")
-    )
+    
+    model.to(device)
 
     processor = AutoProcessor.from_pretrained(model_id)
+
     audio_dataset = Dataset.from_dict({ "audio": [path] }).cast_column("audio", Audio()) # sampling_rate=16000
     sample = audio_dataset[0]["audio"]
 
@@ -51,8 +46,8 @@ def transcribe_voice_record(path):
     )
 
     result = pipe(sample.copy(), generate_kwargs={"language": "english"}, return_timestamps="word")
-    write_to_file('transcription.txt', result['chunks'])
-    # return result['chunks']
+    
+    return result['chunks']
 
 def transform_video_to_wav(path_from, path_to):
     torchaudio.set_audio_backend("soundfile")
