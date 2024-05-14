@@ -25,7 +25,7 @@ def transcribe_voice_record(path):
         use_safetensors=True,
         attn_implementation="eager"
     )
-    print('a')
+    
     model.to(device)
 
     processor = AutoProcessor.from_pretrained(model_id)
